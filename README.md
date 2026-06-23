@@ -174,7 +174,7 @@ Datos abiertos del IMSS, disponibles desde 2000.
 
 ---
 
-## 📄 Fuente
+## Fuente
 
 Instituto Mexicano del Seguro Social (IMSS) — Datos Abiertos  
 [datos.imss.gob.mx](http://datos.imss.gob.mx)
