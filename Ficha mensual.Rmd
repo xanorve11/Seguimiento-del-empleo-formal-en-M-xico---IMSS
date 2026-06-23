@@ -1,0 +1,346 @@
+---
+title:    ""
+output:
+  word_document:
+    reference_docx: "Plantilla _fichas_DAyP.dotx" 
+    toc:            false
+    fig_caption:    true
+    fig_width:      6.5
+    fig_height:     3.5
+params:
+  rds_nacional:      "outputs/imss_nacional_indicadores.rds"
+  rds_nacional_raw:  "outputs/imss_nacional.rds"
+  rds_sexo:          "outputs/imss_nacional_sexo.rds"
+  rds_desagregado:   "outputs/imss_desagregado.rds"
+  rds_estado_sector: "outputs/imss_estado_sector.rds"
+  rds_sbc:           "outputs/imss_sbc_desagregado.rds"
+  rds_sbc_sexo:      "outputs/imss_sbc_desagregado_sexo.rds"
+  dir_plots:         "plots_mensuales"
+  dir_plots_sector:  "plots sector"
+  dir_plots_patrones_sec: "plots_patrones_sec"
+  dir_plots_patrones_tam: "plots_patrones_tam"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  dpi = 150
+)
+
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(knitr)
+library(kableExtra)
+library(flextable)
+library(officer)
+
+# Rutas relativas al .Rmd, no al working directory
+source("r/helpers.R",   encoding = "UTF-8")
+source("r/narrativa.R", encoding = "UTF-8")
+```
+
+```{r carga-rds}
+# ── Un único lugar donde viven todos los readRDS() ────────────────────────────
+df_nacional <- leer_rds(params$rds_nacional)
+df_sexo     <- leer_rds(params$rds_sexo)
+df_desag    <- leer_rds(params$rds_desagregado)
+df_sector   <- leer_rds(params$rds_estado_sector)
+df_sbc      <- leer_rds(params$rds_sbc)
+df_sbc_sexo <- leer_rds(params$rds_sbc_sexo)
+df_patrones <- readRDS("outputs/imss_patrones.rds")
+```
+
+```{r narrativa}
+# ── Bloque 1: Nacional ────────────────────────────────────────────────────────
+n_nac <- construir_narrativa_nacional(df_nacional)
+
+# ── Bloque 2: Entidades ───────────────────────────────────────────────────────
+df_ent_tc <- df_desag |>
+  filter(variable == "cve_entidad") |>
+  rename(entidad_federativa = categoria) |>
+  arrange(entidad_federativa, date) |>
+  group_by(entidad_federativa) |>
+  mutate(
+    diff_anual = ta - lag(ta, 12),
+    tc_anual   = (diff_anual / lag(ta, 12)) * 100
+  ) |>
+  ungroup()
+
+n_ent <- construir_narrativa_entidades(df_ent_tc)
+
+# ── Bloque 3: Sexo ────────────────────────────────────────────────────────────
+n_sex <- construir_narrativa_sexo(df_sexo)
+
+# ── Bloque 4: Sector nacional ─────────────────────────────────────────────────
+n_sec <- construir_narrativa_sector_nacional(df_sector)
+
+# ── Bloque 5: Patrones ────────────────────────────────────────────────────────
+n_pat <- construir_narrativa_patrones(df_patrones)
+
+# ── Bloque 6: Tabla tipo de empleo ────────────────────────────────────────────
+tabla_empleo <- construir_tabla_tipo_empleo(df_nacional, df_sexo)
+
+# ── Helper de ruta para plots ─────────────────────────────────────────────────
+plot_path <- function(carpeta, archivo) file.path(carpeta, archivo)
+```
+
+# Ficha mensual IMSS - `r n_nac$mes_label`
+
+## Resumen
+
+-   A `r n_nac$mes_label` hay **`r n_nac$ta_fmt`** trabajadores asegurados ante el IMSS (el `r n_nac$pct_te_fmt` son eventuales y el `r n_nac$pct_tp_fmt` son permanentes).
+
+-   En `r n_nac$mes_nombre` de `r n_nac$anio` se **`r n_nac$verbo_mensual`** **`r n_nac$abs_mensual_fmt`** puestos de trabajo con respecto al mes anterior. Esto es un `r n_nac$tipo_cambio_mensual` del **`r n_nac$tc_mensual_fmt`**, cifra `r n_nac$comp_mensual` al promedio histórico (**`r n_nac$prom_tc_mensual_fmt`**) para este mes.
+
+-   En `r n_nac$mes_nombre` de `r n_nac$anio` se **`r n_nac$verbo_anual`** **`r n_nac$abs_anual_fmt`** puestos de trabajo con respecto al mismo mes del año anterior. Esto es un `r n_nac$tipo_cambio_anual` del **`r n_nac$tc_anual_fmt`**, cifra `r n_nac$comp_anual` al promedio histórico (**`r n_nac$prom_tc_anual_fmt`**) para este mes.
+
+-   Las entidades con mayores tasas de crecimiento anual fueron `r n_ent$ranking_mayor_txt`.
+
+## Trabajadores Asegurados ante el IMSS
+
+Durante `r n_nac$mes_nombre` de `r n_nac$anio` se registraron **`r n_nac$ta_fmt`** puestos de trabajo, lo que representó un `r n_nac$sustantivo_mensual` de **`r n_nac$abs_mensual_fmt`** empleos respecto al mes anterior, equivalente a un `r n_nac$tipo_cambio_mensual` mensual de **`r n_nac$tc_mensual_fmt`** y con un `r n_nac$tipo_cambio_anual` anual de **`r n_nac$tc_anual_fmt`** respecto a `r n_nac$mes_nombre` de `r n_nac$anio_anterior`.
+
+```{r plot-tasa-anual, fig.cap="Tasa de crecimiento anual de los trabajadores asegurados", fig.align='center'}
+ruta <- plot_path(params$dir_plots, "tasa_anual_total_ta.png")
+if (file.exists(ruta)) knitr::include_graphics(ruta)
+```
+
+Por tipo de empleo, el trabajo **permanente** mostró una `r n_nac$dir_mensual_tp` mensual de **`r n_nac$tc_mensual_tp_fmt`** y un `r n_nac$dir_anual_tp` anual de **`r n_nac$tc_anual_tp_fmt`**, mientras que el empleo **eventual** registró un `r n_nac$dir_mensual_te` mensual de **`r n_nac$tc_mensual_te_fmt`** y una tasa anual de **`r n_nac$tc_anual_te_fmt`**.
+
+La distribución total por tipo de empleo fue la siguiente:
+
+-   **Permanentes:** `r n_nac$tp_fmt` (`r n_nac$pct_tp_fmt`)
+-   **Eventuales:** `r n_nac$te_fmt` (`r n_nac$pct_te_fmt`)
+
+```{r tabla-tipo-empleo}
+flextable(tabla_empleo) |>
+  set_caption(
+    paste(
+      "Trabajadores asegurados por tipo de empleo y sexo —",
+      n_nac$mes_label
+    )
+  ) |>
+  theme_vanilla() |>
+  bold(part = "header") |>
+  bold(i = nrow(tabla_empleo)) |>
+  autofit()
+```
+
+```{r plot-tasa-anual_2, fig.cap="Tasa de crecimiento anual de los trabajadores asegurados", fig.align='center'}
+ruta <- plot_path(params$dir_plots, "tasa_anual_total_tp.png")
+if (file.exists(ruta)) knitr::include_graphics(ruta)
+```
+
+Durante el mes de `r n_nac$mes_nombre`, se registró una `r n_nac$dir_acumulado` de **`r n_nac$acumulado_anio_fmt`** nuevos puestos de trabajo durante `r n_nac$anio`.
+
+**Comparación interanual:** en `r n_nac$mes_nombre` de `r n_nac$anio`, se registraron **`r n_nac$abs_anual_fmt`** empleos adicionales en comparación con `r n_nac$mes_nombre` de `r n_nac$anio_anterior`.
+
+```{r plot-tasa-anual-barras, fig.cap="Variación anual del empleo asegurado", echo=FALSE, fig.align='center'}
+
+
+bd <- readRDS("outputs/imss_nacional.rds")
+
+bd <- bd %>%
+  arrange(date) %>%
+  mutate(
+    ta_tasa_anual = (ta / lag(ta, 12) - 1) * 100
+  )
+
+mes_actual <- max(bd$date)
+mes_num <- as.numeric(format(mes_actual, "%m"))
+
+df_barras <- bd %>%
+  filter(month == mes_num) %>%
+  filter(!is.na(ta_tasa_anual)) %>%
+  mutate(year = as.factor(year))
+
+p_barras <- ggplot(df_barras, aes(x = year, y = ta_tasa_anual)) +
+  
+  geom_col(aes(fill = ta_tasa_anual > 0)) +
+  
+  # Línea en 0
+  geom_hline(yintercept = 0, color = "black", linewidth = 0.1) +
+  
+  # Etiquetas
+  geom_text(
+    aes(label = paste0(round(ta_tasa_anual, 1), "%")),
+    vjust = ifelse(df_barras$ta_tasa_anual > 0, -0.3, 1.3),
+    size = 2.0,
+    family = "Montserrat"
+  ) +
+  
+  scale_fill_manual(
+    values = c("TRUE" = "#001B71", "FALSE" = "#B22222"),
+    guide = "none"
+  ) +
+  
+  scale_x_discrete(
+    breaks = levels(df_barras$year)[seq(1, length(levels(df_barras$year)), by = 3)]
+  ) +
+  
+  scale_y_continuous(
+    labels = percent_format(scale = 1),
+    expand = expansion(mult = c(0.05, 0.15))
+  ) +
+  
+  labs(
+    title = paste0(
+      "Tasa de crecimiento anual para ",
+      format(mes_actual, "%B"),
+      " de cada año"
+    ),
+    subtitle = "Trabajadores asegurados (%)",
+    x = NULL,
+    y = NULL,
+    caption = "Elaboración propia con datos abiertos del IMSS."
+  ) +
+  
+  theme_bw(base_size = 12) +
+  theme(
+    text = element_text(family = "Montserrat"),
+    
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 10),
+    axis.text = element_text(size = 6, color = "black"),
+    axis.ticks = element_line(size = 0.5),  # grosor de las rayitas
+    plot.caption = element_text(size = 6),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.3)
+  )
+
+p_barras
+```
+
+## Por entidad federativa
+
+Las entidades con **mayor crecimiento anual** en el empleo asegurado fueron **`r n_ent$entidad_1`** (`r n_ent$tc_entidad_1`), **`r n_ent$entidad_2`** (`r n_ent$tc_entidad_2`) y **`r n_ent$entidad_3`** (`r n_ent$tc_entidad_3`).
+
+```{r plot-estados, fig.cap="Tasa de crecimiento anual por entidad federativa", fig.align='center'}
+ruta <- plot_path(params$dir_plots, "estados.png")
+if (file.exists(ruta)) knitr::include_graphics(ruta)
+```
+
+```{r entidades-nulas, results='asis'}
+# Imprime el bullet de entidades con crecimiento nulo solo si existen
+if (n_ent$entidades_nulas_txt != "ninguna entidad") {
+  cat(paste0(
+    "En contraste, **", n_ent$entidades_nulas_txt,
+    "** registraron un crecimiento nulo (0.0%) en el número de trabajadores registrados ante el IMSS.\n\n"
+  ))
+}
+```
+
+Por otro lado, las mayores **disminuciones anuales** se observaron en: `r n_ent$ranking_menor_txt`.
+
+```{r tabla-entidades}
+
+ult_date_ent <- df_ent_tc |>
+  filter(!is.na(tc_anual)) |>
+  pull(date) |>
+  max(na.rm = TRUE)
+
+tabla_ent <- df_ent_tc |>
+  filter(date == ult_date_ent) |>
+  arrange(desc(tc_anual)) |>
+  mutate(
+    Ranking          = row_number(),
+    Entidad          = entidad_federativa,
+    Trabajadores     = fmt_entero(ta),
+    `Var. anual (%)` = fmt_pct(tc_anual)
+  ) |>
+  select(
+    Ranking,
+    Entidad,
+    Trabajadores,
+    `Var. anual (%)`
+  )
+
+flextable(tabla_ent) |>
+  set_caption(
+    paste(
+      "Trabajadores asegurados por entidad federativa —",
+      n_nac$mes_label
+    )
+  ) |>
+  theme_vanilla() |>
+  bold(part = "header") |>
+  align(j = c("Ranking"), align = "center") |>
+  align(j = c("Trabajadores", "Var. anual (%)"), align = "center") |>
+  autofit()
+```
+
+## Por sector económico
+
+```{r tabla-sectores}
+# ── Obtener SBC promedio por sector del último periodo disponible ──
+ult_date_sbc <- max(df_sbc$date, na.rm = TRUE)
+
+sbc_sector <- df_sbc |>
+  filter(
+    date == ult_date_sbc,
+    variable == "sector_economico_1"
+  ) |>
+  select(
+    sector = categoria,
+    sbc_prom
+  )
+
+tabla_sectores_sbc <- n_sec$tabla_sectores |>
+  left_join(
+    sbc_sector,
+    by = c("Sector" = "sector")
+  ) |>
+  mutate(
+    `SBC promedio` = fmt_sbc(sbc_prom)
+  ) |>
+  select(
+    Sector,
+    Trabajadores,
+    `% del total`,
+    `SBC promedio`
+  )
+
+flextable(tabla_sectores_sbc) |>
+  set_caption(
+    paste(
+      "Trabajadores asegurados y SBC por sector económico —",
+      n_sec$mes_label
+    )
+  ) |>
+  theme_vanilla() |>
+  bold(part = "header") |>
+  bold(j = "SBC promedio") |>
+  autofit()
+```
+
+Por tipo de sector, los que presentaron **mayor aumento anual** en puestos de trabajo fueron `r n_sec$sector_1` (`r n_sec$pct_s1`), `r n_sec$sector_2` (`r n_sec$pct_s2`) y `r n_sec$sector_3` (`r n_sec$pct_s3`).
+
+```{r plot-treemap-nacional, fig.cap="Composición del empleo formal por sector", fig.align='center'}
+# Busca el treemap nacional más reciente en plots_mensuales
+archivos_treemap <- list.files(
+  params$dir_plots,
+  pattern = "treemap_sector_nacional",
+  full.names = TRUE
+)
+if (length(archivos_treemap) > 0) {
+  knitr::include_graphics(sort(archivos_treemap, decreasing = TRUE)[1])
+}
+```
+
+Al interior de los sectores económicos, el sector de **`r n_sec$sector_1`** concentró en `r n_sec$mes_label` el **`r n_sec$pct_s1`** del empleo total, seguido de **`r n_sec$sector_2`** (`r n_sec$pct_s2`) y **`r n_sec$sector_3`** (`r n_sec$pct_s3`). En conjunto, estos tres sectores agrupan aproximadamente el **`r n_sec$pct_top3_fmt`** del empleo formal en el país.
+
+## Patrones
+
+En `r n_pat$mes_nombre` de `r n_pat$anio` se registraron **`r n_pat$pat_actual_fmt`** patrones, lo que representa una **`r n_pat$dir_anual` anual de `r n_pat$tc_anual_fmt`**, cifra `r n_pat$comp_anual` al promedio histórico (**`r n_pat$prom_tc_anual_fmt`**) para este mes.
+
+Desde noviembre de 2023, el número de patrones inscritos ha pasado de **`r n_pat$pat_ref_fmt`** a **`r n_pat$pat_actual_fmt`**, lo que equivale a una reducción de **`r n_pat$reduccion_fmt`** registros patronales.
+
+```{r plot-patrones-sector, fig.cap="Patrones registrados", fig.align='center'}
+ruta <- plot_path(params$dir_plots, "tasa_anual_total.png")
+if (file.exists(ruta)) knitr::include_graphics(ruta)
+```

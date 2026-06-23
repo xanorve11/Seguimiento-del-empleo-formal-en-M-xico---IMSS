@@ -1,0 +1,25 @@
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Datos crudos y pesados
+inputs/
+outputs/
+excel/
+
+# Plots generados (opcional — comenta si quieres versionar las imágenes)
+# plots_mensuales/
+# plots_patrones_tam/
+# plots_patrones_sec/
+
+# Shapes INEGI (pesados)
+shapes/
+
+# OS
+.DS_Store
+Thumbs.db
+.Rproj.user
+.httr-oauth
+.quarto
