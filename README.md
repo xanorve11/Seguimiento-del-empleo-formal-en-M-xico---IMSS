@@ -1,19 +1,19 @@
-# 📊 Monitor de Empleo Formal — IMSS
+# Monitor de Empleo Formal — IMSS
 
-Pipeline automatizado en R para el procesamiento, análisis y reporte mensual del empleo formal en México a partir de los microdatos abiertos del IMSS.
+Pipeline automatizado en R Studio para el procesamiento, análisis y reporte mensual del empleo formal en México a partir de los microdatos abiertos del IMSS.
 
 ---
 
-## 🎯 Objetivo
+## Objetivo
 
-Construir un sistema de actualización incremental que, cada mes, descargue los microdatos del IMSS, genere indicadores de empleo y salarios desagregados por entidad, sector económico y tamaño de empresa, produzca visualizaciones listas para publicar y alimente fichas narrativas automatizadas en R Markdown.
+Construir un sistema de actualización incremental que, cada mes, descargue los microdatos del IMSS, genere indicadores de empleo y salarios desagregados por entidad, sector económico y tamaño de patrón para producir visualizaciones listas para publicar y alimente fichas resumen automatizadas en R Markdown.
 
 ---
 
 ## 🗂️ Estructura del repositorio
 
 ```
-imss_cpx/
+imss/
 ├── R/
 │   ├── 00_descargar_bases.R         # Descarga automática de microdatos IMSS
 │   ├── 01_imss_nacional.R           # Agregado nacional: TA, TP, TE, SBC
@@ -38,7 +38,7 @@ imss_cpx/
 
 ---
 
-## ⚙️ Pipeline de procesamiento
+## Pipeline de procesamiento
 
 El sistema sigue un flujo incremental: solo procesa los meses que aún no existen en el histórico.
 
@@ -66,7 +66,7 @@ El sistema sigue un flujo incremental: solo procesa los meses que aún no existe
 
 ---
 
-## 📈 Indicadores que produce
+## Indicadores que produce
 
 **Empleo formal (Trabajadores Asegurados)**
 - Total, permanente y eventual — nivel nacional y por entidad federativa
@@ -84,44 +84,23 @@ El sistema sigue un flujo incremental: solo procesa los meses que aún no existe
 
 ---
 
-## 📊 Visualizaciones
+## Visualizaciones
 
 | Archivo | Descripción |
 |---|---|
 | `mapa_ent.png` | Mapa coroplético de tasa de crecimiento anual por entidad |
-| `estados.png` | Barras horizontales con TC anual por entidad federativa |
+| `estados.png` | Barras horizontales con tasa de crecimiento anual por entidad federativa |
 | `treemap_sector_nacional_YYYYMM.png` | Composición del empleo por sector económico |
 | `treemap_sector_<estado>.png` | Composición sectorial por entidad (32 mapas) |
 | `tasa_anual_total_ta.png` | Serie histórica de TC anual — empleo total |
 | `tasa_anual_total_tp.png` | Serie histórica — empleo permanente |
-| `tasa_anual_total_barras.png` | TC anual del mes actual para cada año |
+| `tasa_anual_total_barras.png` | tasa de crecimiento anual del mes actual para cada año |
 | `tasa_anual_total.png` | TC anual de patrones registrados |
 
----
-
-## 🧩 Módulos principales
-
-### `helpers.R`
-Funciones de formato y utilidades reutilizables en todo el proyecto:
-- `fmt_entero()` — números con separador de miles
-- `fmt_pct()` — porcentajes con decimales configurables
-- `fmt_sbc()` — salarios en formato moneda
-- `mes_nombre()` — número de mes a texto en español
-- `ultimo_periodo()` — extrae la última observación disponible
-- `texto_ranking()` — genera texto de ranking para narrativas
-
-### `narrativa.R`
-Construye todos los objetos narrativos dinámicos para el reporte. Contiene 6 bloques independientes:
-1. **Nacional** — empleo total, permanente y eventual con comparación vs. promedio histórico
-2. **Entidades** — ranking top 3 mayor y menor crecimiento anual
-3. **Sexo** — distribución y brecha salarial
-4. **Sector nacional** — composición y top 3 sectores
-5. **Patrones** — total, por tamaño y referencia nov-2023
-6. **Tipo de empleo × sexo** — tabla cruzada lista para reportes
 
 ---
 
-## 🛠️ Tecnologías
+## Principales paqueterias
 
 | Paquete | Uso |
 |---|---|
@@ -139,7 +118,7 @@ Construye todos los objetos narrativos dinámicos para el reporte. Contiene 6 bl
 
 ---
 
-## 🚀 Cómo reproducir
+## Cómo reproducir
 
 ### 1. Requisitos
 
@@ -187,23 +166,10 @@ Datos abiertos del IMSS, disponibles desde 2000.
 
 ---
 
-## 📁 Archivos no versionados
-
-Los siguientes directorios están en `.gitignore` por tamaño o porque se generan localmente:
-
-```
-inputs/        # Microdatos crudos (CSV pesados)
-outputs/       # Bases procesadas (.rds)
-excel/         # Reportes Excel generados
-```
-
----
-
-## 📌 Notas técnicas
+## Notas técnicas
 
 - El procesamiento usa `parallel::makeCluster()` con hasta 4 núcleos para acelerar la lectura de microdatos.
 - Los archivos `.csv` del IMSS usan separador `|` y encoding Latin-1.
-- El **modo rápido** activado por defecto en varios scripts procesa solo el mes más reciente cuando se detectan meses nuevos, para reducir el tiempo de actualización mensual.
 - El SBC se calcula como `masa_sal_ta / ta_sal` (promedio ponderado por trabajadores con salario registrado).
 
 ---
